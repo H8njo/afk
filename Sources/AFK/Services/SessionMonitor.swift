@@ -1,0 +1,124 @@
+import Foundation
+
+class SessionMonitor {
+    private var source: DispatchSourceFileSystemObject?
+    private var dirFD: Int32 = -1
+    private let sessionsPath: String
+    private let onChange: (AppState.AIState) -> Void
+    private var lastStates: [String: AppState.AIState] = [:]
+
+    static let sessionsDirectory: String = {
+        let path = NSHomeDirectory() + "/.afk/sessions"
+        try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        return path
+    }()
+
+    init(onChange: @escaping (AppState.AIState) -> Void) {
+        self.sessionsPath = Self.sessionsDirectory
+        self.onChange = onChange
+    }
+
+    func start() {
+        dirFD = open(sessionsPath, O_EVTONLY)
+        guard dirFD >= 0 else {
+            print("AFK: Failed to open sessions directory for monitoring")
+            return
+        }
+
+        source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: dirFD,
+            eventMask: .write,
+            queue: DispatchQueue.global(qos: .userInitiated)
+        )
+
+        source?.setEventHandler { [weak self] in
+            self?.readAndAggregate()
+        }
+
+        source?.setCancelHandler { [weak self] in
+            if let fd = self?.dirFD, fd >= 0 {
+                close(fd)
+            }
+        }
+
+        source?.resume()
+
+        // Initial read
+        readAndAggregate()
+    }
+
+    func stop() {
+        source?.cancel()
+        source = nil
+    }
+
+    private func readAndAggregate() {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(atPath: sessionsPath) else { return }
+
+        var states: [String: AppState.AIState] = [:]
+
+        for file in files where file.hasSuffix(".json") {
+            let path = (sessionsPath as NSString).appendingPathComponent(file)
+            guard let data = fm.contents(atPath: path),
+                  let json = try? JSONDecoder().decode(SessionState.self, from: data) else {
+                continue
+            }
+
+            // Remove stale sessions (older than 5 minutes)
+            if let ts = Self.parseISO8601(json.ts), Date().timeIntervalSince(ts) > 300 {
+                try? fm.removeItem(atPath: path)
+                continue
+            }
+
+            states[json.sessionId] = json.state
+        }
+
+        let aggregated = Self.aggregate(states)
+
+        if aggregated != lastStates.values.first || lastStates.isEmpty {
+            lastStates = states
+            onChange(aggregated)
+        } else {
+            lastStates = states
+        }
+    }
+
+    static func aggregate(_ states: [String: AppState.AIState]) -> AppState.AIState {
+        let values = Array(states.values)
+        if values.isEmpty { return .idle }
+
+        // Any session waiting → user needs to return
+        if values.contains(.waitingForUser) { return .waitingForUser }
+
+        // All working → break time
+        if values.allSatisfy({ $0 == .working }) { return .working }
+
+        // Mix of idle and working → still working
+        if values.contains(.working) { return .working }
+
+        return .idle
+    }
+
+    private static func parseISO8601(_ string: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: string)
+    }
+
+    deinit {
+        stop()
+    }
+}
+
+struct SessionState: Codable {
+    let state: AppState.AIState
+    let sessionId: String
+    let ts: String
+
+    enum CodingKeys: String, CodingKey {
+        case state
+        case sessionId = "session_id"
+        case ts
+    }
+}
