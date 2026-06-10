@@ -11,8 +11,10 @@ struct AFKApp: App {
             Image(systemName: appState.menuBarIcon)
         }
 
-        Settings {
+        Window("AFK Settings", id: "settings") {
             SettingsView(appState: appState)
         }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
