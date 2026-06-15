@@ -79,6 +79,7 @@ class SessionMonitor {
                 id: json.sessionId,
                 state: json.state,
                 prompt: json.prompt,
+                app: json.app,
                 updatedAt: ts
             ))
         }
@@ -121,6 +122,7 @@ struct SessionInfo: Identifiable {
     let id: String
     let state: AppState.AIState
     let prompt: String?
+    let app: String?
     let updatedAt: Date?
 
     var displayTitle: String {
@@ -134,12 +136,17 @@ struct SessionInfo: Identifiable {
         return String(id.prefix(8))
     }
 
-    var stateIcon: String {
-        switch state {
-        case .working: return "⏳"
-        case .waitingForUser: return "✅"
-        case .idle: return "⏸"
+    var displayApp: String? {
+        guard let app = app, !app.isEmpty else { return nil }
+        return app
+    }
+
+    var menuLabel: String {
+        var parts = [displayTitle, stateLabel]
+        if let app = displayApp {
+            parts.insert(app, at: 0)
         }
+        return parts.joined(separator: " — ")
     }
 
     var stateLabel: String {
@@ -155,12 +162,14 @@ struct SessionState: Codable {
     let state: AppState.AIState
     let sessionId: String
     let prompt: String?
+    let app: String?
     let ts: String
 
     enum CodingKeys: String, CodingKey {
         case state
         case sessionId = "session_id"
         case prompt
+        case app
         case ts
     }
 }

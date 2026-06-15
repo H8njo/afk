@@ -12,7 +12,7 @@ struct MenuBarView: View {
 
         if !appState.sessions.isEmpty {
             ForEach(appState.sessions) { session in
-                Button("\(session.stateIcon) \(session.displayTitle) — \(session.stateLabel)") {
+                Button(session.menuLabel) {
                     AppSwitcher.focusSourceApp(bundleID: appState.sourceAppBundleID)
                 }
             }
