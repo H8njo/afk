@@ -10,6 +10,13 @@ struct SettingsView: View {
     @State private var installedApps: [InstalledApp] = []
     @State private var hookError: String?
     @State private var showHookError = false
+    @State private var accessibilityGranted = false
+
+    private let systemSounds = [
+        "Basso", "Blow", "Bottle", "Frog", "Funk", "Glass",
+        "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi",
+        "Submarine", "Tink"
+    ]
 
     var body: some View {
         Form {
@@ -22,17 +29,49 @@ struct SettingsView: View {
                     }
                 }
 
-                Picker("Source App (AI tool)", selection: $appState.sourceAppBundleID) {
-                    Text("Session App (Auto)").tag(AppSwitcher.autoSourceID)
-                    Divider()
-                    ForEach(installedApps) { app in
-                        Text(app.name).tag(app.id)
+                Picker("On Completion", selection: $appState.completionMode) {
+                    ForEach(AppState.CompletionMode.allCases, id: \.rawValue) { mode in
+                        Text(mode.label).tag(mode.rawValue)
+                    }
+                }
+
+                if appState.completionMode == AppState.CompletionMode.autoSwitch.rawValue {
+                    Picker("Source App (AI tool)", selection: $appState.sourceAppBundleID) {
+                        Text("Session App (Auto)").tag(AppSwitcher.autoSourceID)
+                        Divider()
+                        ForEach(installedApps) { app in
+                            Text(app.name).tag(app.id)
+                        }
                     }
                 }
 
                 HStack {
                     Text("Switch delay: \(String(format: "%.1f", appState.switchDelay))s")
                     Slider(value: $appState.switchDelay, in: 0...10, step: 0.5)
+                }
+            }
+
+            if appState.completionMode == AppState.CompletionMode.notify.rawValue {
+                Section("Notification") {
+                    HStack {
+                        Picker("Sound", selection: $appState.notificationSound) {
+                            Text("None").tag("")
+                            Divider()
+                            ForEach(systemSounds, id: \.self) { sound in
+                                Text(sound).tag(sound)
+                            }
+                        }
+                        Button("▶") {
+                            if !appState.notificationSound.isEmpty {
+                                NSSound(named: NSSound.Name(appState.notificationSound))?.play()
+                            }
+                        }
+                    }
+
+                    HStack {
+                        Text("Duration: \(Int(appState.notificationDuration))s")
+                        Slider(value: $appState.notificationDuration, in: 3...30, step: 1)
+                    }
                 }
             }
 
@@ -68,20 +107,33 @@ struct SettingsView: View {
             }
 
             Section("Permissions") {
-                if AXIsProcessTrusted() {
-                    Label("Accessibility Granted", systemImage: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                } else {
-                    Label("Accessibility Not Granted", systemImage: "exclamationmark.triangle")
-                        .foregroundColor(.orange)
-
-                    Button("Grant Accessibility") {
-                        let opts = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
-                        AXIsProcessTrustedWithOptions(opts)
+                HStack {
+                    if accessibilityGranted {
+                        Label("Accessibility Granted", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                    } else {
+                        Label("Accessibility Not Granted", systemImage: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
                     }
-                    .buttonStyle(.borderedProminent)
-
-                    Text("Required for automatic app switching.")
+                    Spacer()
+                    if !accessibilityGranted {
+                        Button("Grant") {
+                            let opts = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
+                            AXIsProcessTrustedWithOptions(opts)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                accessibilityGranted = AXIsProcessTrusted()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Open Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                    }
+                }
+                if !accessibilityGranted {
+                    Text("Required for app switching. After rebuild, toggle OFF → ON to re-trust.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -91,6 +143,7 @@ struct SettingsView: View {
         .frame(width: 450, height: 400)
         .onAppear {
             loadInstalledApps()
+            accessibilityGranted = AXIsProcessTrusted()
         }
         .alert("Hook Installation Error", isPresented: $showHookError) {
             Button("OK") {}
