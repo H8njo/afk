@@ -12,9 +12,9 @@ class NotificationManager {
     }
 
     private var entries: [NotificationEntry] = []
-    private let bannerWidth: CGFloat = 340
-    private let bannerHeight: CGFloat = 160
-    private let spacing: CGFloat = 10
+    private let bannerWidth: CGFloat = 320
+    private let bannerHeight: CGFloat = 150
+    private let spacing: CGFloat = 4
 
     func notify(session: SessionInfo) {
         let soundName = UserDefaults.standard.string(forKey: "notificationSound") ?? "Ping"
@@ -105,36 +105,73 @@ struct NotificationBanner: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "atom")
-                    .font(.title3)
-                Text("AFK")
-                    .font(.subheadline.bold())
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(.green.opacity(0.15))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.green)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Task Complete")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(appName)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
                 Spacer()
+
                 Button(action: onDismiss) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 22, height: 22)
+                        .background(.quaternary.opacity(0.5), in: Circle())
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
-            Text("\(appName) — Done")
-                .font(.headline)
+            Divider()
+                .padding(.horizontal, 12)
 
             Text(prompt)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
                 .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
 
             Button(action: onOpen) {
-                Text("Open \(appName)")
-                    .frame(maxWidth: .infinity)
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("Back to \(appName)")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
         }
-        .padding(16)
-        .frame(width: 340, height: 160)
-        .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .frame(width: 320)
+        .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
     }
 }
