@@ -67,6 +67,14 @@ class AppSwitcher {
         }
     }
 
+    static func focusSourceApp(bundleID: String) {
+        if let app = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleID)
+            .first {
+            app.activate(options: .activateIgnoringOtherApps)
+        }
+    }
+
     deinit {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }

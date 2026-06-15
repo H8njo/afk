@@ -5,27 +5,35 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(appState.statusText)
-                .font(.headline)
+        Text(appState.statusText)
+            .font(.headline)
+
+        Divider()
+
+        if !appState.sessions.isEmpty {
+            ForEach(appState.sessions) { session in
+                Button("\(session.stateIcon) \(session.displayTitle) — \(session.stateLabel)") {
+                    AppSwitcher.focusSourceApp(bundleID: appState.sourceAppBundleID)
+                }
+            }
 
             Divider()
-
-            Toggle("Pause", isOn: $appState.isPaused)
-                .keyboardShortcut("p")
-
-            Divider()
-
-            Button("Settings...") {
-                openWindow(id: "settings")
-                NSApp.activate(ignoringOtherApps: true)
-            }
-            .keyboardShortcut(",")
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q")
         }
+
+        Toggle("Pause", isOn: $appState.isPaused)
+            .keyboardShortcut("p")
+
+        Divider()
+
+        Button("Settings...") {
+            openWindow(id: "settings")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        .keyboardShortcut(",")
+
+        Button("Quit") {
+            NSApplication.shared.terminate(nil)
+        }
+        .keyboardShortcut("q")
     }
 }

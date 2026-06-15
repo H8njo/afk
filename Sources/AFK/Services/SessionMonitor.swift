@@ -4,7 +4,7 @@ class SessionMonitor {
     private var source: DispatchSourceFileSystemObject?
     private var dirFD: Int32 = -1
     private let sessionsPath: String
-    private let onChange: (AppState.AIState) -> Void
+    private let onChange: (AppState.AIState, [SessionInfo]) -> Void
     private var lastStates: [String: AppState.AIState] = [:]
 
     static let sessionsDirectory: String = {
@@ -13,7 +13,7 @@ class SessionMonitor {
         return path
     }()
 
-    init(onChange: @escaping (AppState.AIState) -> Void) {
+    init(onChange: @escaping (AppState.AIState, [SessionInfo]) -> Void) {
         self.sessionsPath = Self.sessionsDirectory
         self.onChange = onChange
     }
@@ -57,6 +57,7 @@ class SessionMonitor {
         guard let files = try? fm.contentsOfDirectory(atPath: sessionsPath) else { return }
 
         var states: [String: AppState.AIState] = [:]
+        var sessions: [SessionInfo] = []
 
         for file in files where file.hasSuffix(".json") {
             let path = (sessionsPath as NSString).appendingPathComponent(file)
@@ -65,23 +66,28 @@ class SessionMonitor {
                 continue
             }
 
+            let ts = Self.parseISO8601(json.ts)
+
             // Remove stale sessions (older than 5 minutes)
-            if let ts = Self.parseISO8601(json.ts), Date().timeIntervalSince(ts) > 300 {
+            if let ts = ts, Date().timeIntervalSince(ts) > 300 {
                 try? fm.removeItem(atPath: path)
                 continue
             }
 
             states[json.sessionId] = json.state
+            sessions.append(SessionInfo(
+                id: json.sessionId,
+                state: json.state,
+                prompt: json.prompt,
+                updatedAt: ts
+            ))
         }
+
+        sessions.sort { ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast) }
 
         let aggregated = Self.aggregate(states)
-
-        if aggregated != lastStates.values.first || lastStates.isEmpty {
-            lastStates = states
-            onChange(aggregated)
-        } else {
-            lastStates = states
-        }
+        lastStates = states
+        onChange(aggregated, sessions)
     }
 
     static func aggregate(_ states: [String: AppState.AIState]) -> AppState.AIState {
@@ -111,14 +117,50 @@ class SessionMonitor {
     }
 }
 
+struct SessionInfo: Identifiable {
+    let id: String
+    let state: AppState.AIState
+    let prompt: String?
+    let updatedAt: Date?
+
+    var displayTitle: String {
+        if let prompt = prompt, !prompt.isEmpty {
+            let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.count > 40 {
+                return String(trimmed.prefix(40)) + "..."
+            }
+            return trimmed
+        }
+        return String(id.prefix(8))
+    }
+
+    var stateIcon: String {
+        switch state {
+        case .working: return "⏳"
+        case .waitingForUser: return "✅"
+        case .idle: return "⏸"
+        }
+    }
+
+    var stateLabel: String {
+        switch state {
+        case .working: return "Working"
+        case .waitingForUser: return "Done"
+        case .idle: return "Idle"
+        }
+    }
+}
+
 struct SessionState: Codable {
     let state: AppState.AIState
     let sessionId: String
+    let prompt: String?
     let ts: String
 
     enum CodingKeys: String, CodingKey {
         case state
         case sessionId = "session_id"
+        case prompt
         case ts
     }
 }

@@ -16,6 +16,7 @@ class AppState: ObservableObject {
 
     @Published var currentState: AIState = .idle
     @Published var isHookInstalled: Bool = false
+    @Published var sessions: [SessionInfo] = []
 
     private var sessionMonitor: SessionMonitor?
     private var appSwitcher = AppSwitcher()
@@ -44,8 +45,9 @@ class AppState: ObservableObject {
     }
 
     func startMonitoring() {
-        sessionMonitor = SessionMonitor { [weak self] newState in
+        sessionMonitor = SessionMonitor { [weak self] newState, sessions in
             Task { @MainActor in
+                self?.sessions = sessions
                 self?.handleStateChange(newState)
             }
         }
