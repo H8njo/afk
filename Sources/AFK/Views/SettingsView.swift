@@ -23,6 +23,8 @@ struct SettingsView: View {
                 }
 
                 Picker("Source App (AI tool)", selection: $appState.sourceAppBundleID) {
+                    Text("Session App (Auto)").tag(AppSwitcher.autoSourceID)
+                    Divider()
                     ForEach(installedApps) { app in
                         Text(app.name).tag(app.id)
                     }

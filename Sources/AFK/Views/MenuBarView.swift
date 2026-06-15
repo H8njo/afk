@@ -13,7 +13,8 @@ struct MenuBarView: View {
         if !appState.sessions.isEmpty {
             ForEach(appState.sessions) { session in
                 Button(session.menuLabel) {
-                    AppSwitcher.focusSourceApp(bundleID: appState.sourceAppBundleID)
+                    let bundleID = session.resolveBundleID() ?? appState.sourceAppBundleID
+                    AppSwitcher.focusSourceApp(bundleID: bundleID)
                 }
             }
 

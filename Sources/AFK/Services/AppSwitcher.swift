@@ -2,6 +2,27 @@ import AppKit
 
 class AppSwitcher {
     static let previousAppID = "__previous__"
+    static let autoSourceID = "__auto__"
+
+    static func bundleID(forAppName name: String) -> String? {
+        let known: [String: String] = [
+            "Terminal": "com.apple.Terminal",
+            "iTerm": "com.googlecode.iterm2",
+            "VS Code": "com.microsoft.VSCode",
+            "Cursor": "com.todesktop.230313mzl4w4u92",
+            "Warp": "dev.warp.Warp-Stable",
+        ]
+        if let id = known[name] { return id }
+        let nameLower = name.lowercased()
+        for app in NSWorkspace.shared.runningApplications {
+            guard let localName = app.localizedName,
+                  let bundleID = app.bundleIdentifier else { continue }
+            if localName == name || localName.lowercased().contains(nameLower) {
+                return bundleID
+            }
+        }
+        return nil
+    }
 
     private var pendingSwitch: DispatchWorkItem?
     private var previousAppBundleID: String?

@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 class SessionMonitor {
     private var source: DispatchSourceFileSystemObject?
@@ -56,6 +57,10 @@ class SessionMonitor {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(atPath: sessionsPath) else { return }
 
+        let runningBundleIDs = Set(
+            NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
+        )
+
         var states: [String: AppState.AIState] = [:]
         var sessions: [SessionInfo] = []
 
@@ -74,12 +79,20 @@ class SessionMonitor {
                 continue
             }
 
+            // Remove sessions whose app is no longer running
+            if let bundleID = json.appBundle, !bundleID.isEmpty,
+               !runningBundleIDs.contains(bundleID) {
+                try? fm.removeItem(atPath: path)
+                continue
+            }
+
             states[json.sessionId] = json.state
             sessions.append(SessionInfo(
                 id: json.sessionId,
                 state: json.state,
                 prompt: json.prompt,
                 app: json.app,
+                appBundle: json.appBundle,
                 updatedAt: ts
             ))
         }
@@ -123,6 +136,7 @@ struct SessionInfo: Identifiable {
     let state: AppState.AIState
     let prompt: String?
     let app: String?
+    let appBundle: String?
     let updatedAt: Date?
 
     var displayTitle: String {
@@ -139,6 +153,12 @@ struct SessionInfo: Identifiable {
     var displayApp: String? {
         guard let app = app, !app.isEmpty else { return nil }
         return app
+    }
+
+    func resolveBundleID() -> String? {
+        if let bundle = appBundle, !bundle.isEmpty { return bundle }
+        guard let app = app, !app.isEmpty else { return nil }
+        return AppSwitcher.bundleID(forAppName: app)
     }
 
     var menuLabel: String {
@@ -163,6 +183,7 @@ struct SessionState: Codable {
     let sessionId: String
     let prompt: String?
     let app: String?
+    let appBundle: String?
     let ts: String
 
     enum CodingKeys: String, CodingKey {
@@ -170,6 +191,7 @@ struct SessionState: Codable {
         case sessionId = "session_id"
         case prompt
         case app
+        case appBundle = "app_bundle"
         case ts
     }
 }

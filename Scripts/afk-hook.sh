@@ -56,28 +56,31 @@ print(sid)
 print(prompt)
 " 2>/dev/null || echo -e "default\n")
 
-# Detect app: IDE-specific env vars take priority over TERM_PROGRAM
+# Detect app name and bundle ID
 APP_NAME=""
+APP_BUNDLE=""
 if [ -n "${CURSOR_CLI:-}" ]; then
     APP_NAME="Cursor"
+    APP_BUNDLE=$(defaults read /Applications/Cursor.app/Contents/Info.plist CFBundleIdentifier 2>/dev/null || echo "")
 elif [ -n "${VSCODE_PID:-}" ]; then
     APP_NAME="VS Code"
+    APP_BUNDLE=$(defaults read "/Applications/Visual Studio Code.app/Contents/Info.plist" CFBundleIdentifier 2>/dev/null || echo "com.microsoft.VSCode")
 fi
 
 if [ -z "$APP_NAME" ]; then
     case "${TERM_PROGRAM:-}" in
-        Apple_Terminal) APP_NAME="Terminal" ;;
-        iTerm.app)     APP_NAME="iTerm" ;;
-        vscode)        APP_NAME="VS Code" ;;
+        Apple_Terminal) APP_NAME="Terminal";  APP_BUNDLE="com.apple.Terminal" ;;
+        iTerm.app)     APP_NAME="iTerm";     APP_BUNDLE="com.googlecode.iterm2" ;;
+        vscode)        APP_NAME="VS Code";   APP_BUNDLE="com.microsoft.VSCode" ;;
         tmux)          APP_NAME="tmux" ;;
-        WarpTerminal)  APP_NAME="Warp" ;;
+        WarpTerminal)  APP_NAME="Warp";      APP_BUNDLE="dev.warp.Warp-Stable" ;;
     esac
 fi
 
 SESSION_ID=$(echo "$PARSED" | head -1)
 PROMPT=$(echo "$PARSED" | sed -n '2p')
 
-# On non-working states, preserve existing prompt/app if new ones are empty
+# On non-working states, preserve existing values if new ones are empty
 if [ "$STATE" != "working" ] && [ -f "$SESSION_DIR/$SESSION_ID.json" ]; then
     EXISTING=$(python3 -c "
 import json
@@ -85,25 +88,29 @@ try:
     d = json.load(open('$SESSION_DIR/$SESSION_ID.json'))
     print(d.get('prompt',''))
     print(d.get('app',''))
+    print(d.get('app_bundle',''))
 except:
     print('')
     print('')
-" 2>/dev/null || echo -e "\n")
+    print('')
+" 2>/dev/null || echo -e "\n\n")
     [ -z "$PROMPT" ] && PROMPT=$(echo "$EXISTING" | head -1)
     [ -z "$APP_NAME" ] && APP_NAME=$(echo "$EXISTING" | sed -n '2p')
+    [ -z "$APP_BUNDLE" ] && APP_BUNDLE=$(echo "$EXISTING" | sed -n '3p')
 fi
 
 # Write atomically via python for safe JSON encoding
 TMPFILE=$(mktemp "$SESSION_DIR/.tmp.XXXXXX")
-AFK_STATE="$STATE" AFK_SID="$SESSION_ID" AFK_PROMPT="$PROMPT" AFK_APP="$APP_NAME" AFK_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)" AFK_TMP="$TMPFILE" python3 -c "
+AFK_STATE="$STATE" AFK_SID="$SESSION_ID" AFK_PROMPT="$PROMPT" AFK_APP="$APP_NAME" AFK_BUNDLE="$APP_BUNDLE" AFK_TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)" AFK_TMP="$TMPFILE" python3 -c "
 import os, json
 json.dump({
     'state': os.environ['AFK_STATE'],
     'session_id': os.environ['AFK_SID'],
     'prompt': os.environ['AFK_PROMPT'],
     'app': os.environ['AFK_APP'],
+    'app_bundle': os.environ['AFK_BUNDLE'],
     'ts': os.environ['AFK_TS']
 }, open(os.environ['AFK_TMP'], 'w'), ensure_ascii=False)
-" 2>/dev/null || printf '{"state":"%s","session_id":"%s","prompt":"","app":"","ts":"%s"}' \
+" 2>/dev/null || printf '{"state":"%s","session_id":"%s","prompt":"","app":"","app_bundle":"","ts":"%s"}' \
     "$STATE" "$SESSION_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$TMPFILE"
 mv "$TMPFILE" "$SESSION_DIR/$SESSION_ID.json"

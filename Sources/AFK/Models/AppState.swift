@@ -10,7 +10,7 @@ class AppState: ObservableObject {
     }
 
     @AppStorage("breakAppBundleID") var breakAppBundleID: String = "com.apple.Safari"
-    @AppStorage("sourceAppBundleID") var sourceAppBundleID: String = "com.apple.Terminal"
+    @AppStorage("sourceAppBundleID") var sourceAppBundleID: String = AppSwitcher.autoSourceID
     @AppStorage("switchDelay") var switchDelay: Double = 2.0
     @AppStorage("isPaused") var isPaused: Bool = false
 
@@ -65,12 +65,24 @@ class AppState: ObservableObject {
         case .working:
             appSwitcher.switchToBreakApp(bundleID: breakAppBundleID, delay: switchDelay)
         case .waitingForUser:
-            appSwitcher.switchToSourceApp(bundleID: sourceAppBundleID)
+            appSwitcher.switchToSourceApp(bundleID: resolveSourceApp())
         case .idle:
             if oldState == .working || oldState == .waitingForUser {
-                appSwitcher.switchToSourceApp(bundleID: sourceAppBundleID)
+                appSwitcher.switchToSourceApp(bundleID: resolveSourceApp())
             }
         }
+    }
+
+    private func resolveSourceApp() -> String {
+        guard sourceAppBundleID == AppSwitcher.autoSourceID else {
+            return sourceAppBundleID
+        }
+        let target = sessions.first(where: { $0.state == .waitingForUser })
+            ?? sessions.first
+        if let bundleID = target?.resolveBundleID() {
+            return bundleID
+        }
+        return "com.apple.Terminal"
     }
 
     func checkHookInstalled() {
