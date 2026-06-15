@@ -8,7 +8,7 @@ struct AFKApp: App {
         MenuBarExtra {
             MenuBarView(appState: appState)
         } label: {
-            Image(systemName: appState.menuBarIcon)
+            MenuBarIconView(appState: appState)
         }
 
         Window("AFK Settings", id: "settings") {
