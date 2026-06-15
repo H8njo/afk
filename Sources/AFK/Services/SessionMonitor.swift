@@ -53,6 +53,10 @@ class SessionMonitor {
         source = nil
     }
 
+    func refresh() {
+        readAndAggregate()
+    }
+
     private func readAndAggregate() {
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(atPath: sessionsPath) else { return }

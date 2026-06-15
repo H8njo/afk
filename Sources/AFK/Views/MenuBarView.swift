@@ -21,6 +21,11 @@ struct MenuBarView: View {
             Divider()
         }
 
+        Button("Refresh") {
+            appState.refreshSessions()
+        }
+        .keyboardShortcut("r")
+
         Toggle("Pause", isOn: $appState.isPaused)
             .keyboardShortcut("p")
 

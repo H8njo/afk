@@ -85,6 +85,10 @@ class AppState: ObservableObject {
         return "com.apple.Terminal"
     }
 
+    func refreshSessions() {
+        sessionMonitor?.refresh()
+    }
+
     func checkHookInstalled() {
         isHookInstalled = HookInstaller.isInstalled()
     }
