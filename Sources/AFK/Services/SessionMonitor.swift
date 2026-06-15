@@ -3,6 +3,7 @@ import AppKit
 
 class SessionMonitor {
     private var source: DispatchSourceFileSystemObject?
+    private var pollTimer: DispatchSourceTimer?
     private var dirFD: Int32 = -1
     private let sessionsPath: String
     private let onChange: (AppState.AIState, [SessionInfo]) -> Void
@@ -44,6 +45,15 @@ class SessionMonitor {
 
         source?.resume()
 
+        // Poll every 5s to catch killed apps
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .utility))
+        timer.schedule(deadline: .now() + 5, repeating: 5)
+        timer.setEventHandler { [weak self] in
+            self?.readAndAggregate()
+        }
+        timer.resume()
+        pollTimer = timer
+
         // Initial read
         readAndAggregate()
     }
@@ -51,6 +61,8 @@ class SessionMonitor {
     func stop() {
         source?.cancel()
         source = nil
+        pollTimer?.cancel()
+        pollTimer = nil
     }
 
     func refresh() {
