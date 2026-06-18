@@ -27,6 +27,7 @@ class AppState: ObservableObject {
     @AppStorage("switchDelay") var switchDelay: Double = 2.0
     @AppStorage("notificationSound") var notificationSound: String = "Ping"
     @AppStorage("notificationDuration") var notificationDuration: Double = 8.0
+    @AppStorage("switchToBreakApp") var switchToBreakApp: Bool = true
     @AppStorage("isPaused") var isPaused: Bool = false
 
     @Published var currentState: AIState = .idle
@@ -78,15 +79,14 @@ class AppState: ObservableObject {
         guard !isPaused else { return }
         guard oldState != newState else { return }
 
-        Self.log("state \(oldState.rawValue) → \(newState.rawValue), mode=\(completionMode)")
-
         switch newState {
         case .working:
-            appSwitcher.switchToBreakApp(bundleID: breakAppBundleID, delay: switchDelay)
+            if switchToBreakApp {
+                appSwitcher.switchToBreakApp(bundleID: breakAppBundleID, delay: switchDelay)
+            }
         case .waitingForUser:
             if completionMode == CompletionMode.notify.rawValue {
                 let done = sessions.filter { $0.state == .waitingForUser }
-                Self.log("notify waitingForUser count=\(done.count)")
                 for session in done {
                     notificationManager.notify(session: session)
                 }
@@ -97,7 +97,6 @@ class AppState: ObservableObject {
             if oldState == .working || oldState == .waitingForUser {
                 if completionMode == CompletionMode.notify.rawValue {
                     let done = sessions.filter { $0.state != .working }
-                    Self.log("notify idle count=\(done.count)")
                     for session in done {
                         notificationManager.notify(session: session)
                     }
@@ -122,18 +121,6 @@ class AppState: ObservableObject {
 
     func refreshSessions() {
         sessionMonitor?.refresh()
-    }
-
-    static func log(_ msg: String) {
-        let line = "\(Date()): \(msg)\n"
-        let path = NSHomeDirectory() + "/.afk/debug.log"
-        if let handle = FileHandle(forWritingAtPath: path) {
-            handle.seekToEndOfFile()
-            handle.write(line.data(using: .utf8)!)
-            handle.closeFile()
-        } else {
-            try? line.write(toFile: path, atomically: true, encoding: .utf8)
-        }
     }
 
     func checkHookInstalled() {

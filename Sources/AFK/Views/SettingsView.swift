@@ -21,11 +21,15 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("App Switching") {
-                Picker("Break App", selection: $appState.breakAppBundleID) {
-                    Text("Previous App (Cmd+Tab)").tag(AppSwitcher.previousAppID)
-                    Divider()
-                    ForEach(installedApps) { app in
-                        Text(app.name).tag(app.id)
+                Toggle("Switch to break app while working", isOn: $appState.switchToBreakApp)
+
+                if appState.switchToBreakApp {
+                    Picker("Break App", selection: $appState.breakAppBundleID) {
+                        Text("Previous App (Cmd+Tab)").tag(AppSwitcher.previousAppID)
+                        Divider()
+                        ForEach(installedApps) { app in
+                            Text(app.name).tag(app.id)
+                        }
                     }
                 }
 

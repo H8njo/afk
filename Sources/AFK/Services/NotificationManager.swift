@@ -64,7 +64,6 @@ class NotificationManager {
         entries.append(NotificationEntry(window: w, timer: timer, id: entryID))
         repositionAll()
         w.orderFrontRegardless()
-        AppState.log("notify: entries=\(entries.count), positions=\(entries.map { "\($0.window.frame.origin.y)" }.joined(separator: ","))")
     }
 
     private func dismissByID(_ id: String) {
